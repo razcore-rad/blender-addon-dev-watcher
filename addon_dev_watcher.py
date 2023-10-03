@@ -84,7 +84,9 @@ class WatchAddonModuleItem(PropertyGroup):
 
 
 class WATCH_UL_Addons(UIList):
-    use_filter_show = True
+    def __init__(self) -> None:
+        super().__init__()
+        self.use_filter_show = self.list_id != "watched"
 
     def draw_item(
         self,
