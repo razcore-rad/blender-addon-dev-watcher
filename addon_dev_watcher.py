@@ -134,9 +134,7 @@ class WATCH_OT_RemoveWatch(Operator):
 
     def execute(self, context: Context) -> None:
         scene = context.scene
-        watched_addon_module = scene.watch_watched_addon_modules[
-            scene.watch_watched_addon_module_index
-        ]
+        watched_addon_module = scene.watch_watched_addon_modules[scene.watch_watched_addon_module_index]
         watched_addon_modules.discard(watched_addon_module.name)
         scene.watch_watched_addon_module_index -= 1
         if watched_addon_module.name in observers:
