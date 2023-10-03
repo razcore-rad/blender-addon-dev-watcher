@@ -1,13 +1,13 @@
 import addon_utils
-import bpy
 import logging
 import subprocess
 import sys
+import bpy
+from typing import Iterator
 from bpy.props import CollectionProperty, IntProperty, StringProperty
 from bpy.types import Context, Operator, Panel, PropertyGroup, UIList, UILayout, Scene
 from bpy.utils import register_class, unregister_class, system_resource
 from pathlib import Path
-from typing import Iterator
 
 try:
     from watchdog.observers import Observer
@@ -54,9 +54,11 @@ def get_addon_modules_by_name(name: str) -> Iterator[str]:
 
 
 def reload_module(name) -> None:
-    # TODO: debug still not working properly when enabling addon
-    print("REL", name, name in sys.modules.keys())
-    addon_utils.enable(name)
+    try:
+        # FIXME: I have no idea why the first try fails
+        addon_utils.enable(name)
+    except (KeyError, ImportError):
+        addon_utils.enable(name)
 
 
 def observe(module_name: str, module_file: str) -> None:
