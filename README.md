@@ -1,3 +1,7 @@
+# WARNING
+
+Tested with Blender 4.0.0 Beta, hash: `779239f5e180`.
+
 # Blender Addon Dev Watcher
 
 This addon auto-reloads the selected addons when file changes get detected for a fast development cycle.
