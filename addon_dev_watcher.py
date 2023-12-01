@@ -3,6 +3,8 @@ import logging
 import subprocess
 import sys
 import bpy
+from importlib import reload, import_module
+from types import ModuleType
 from typing import Iterator
 from bpy.props import CollectionProperty, IntProperty, StringProperty
 from bpy.types import Context, Operator, Panel, PropertyGroup, UIList, UILayout, Scene
@@ -38,6 +40,52 @@ watched_addon_modules = set([__name__])
 observers = {}
 
 
+def _reload(module, reload_all, reloaded):
+    if isinstance(module, ModuleType):
+        module_name = module.__name__
+    elif isinstance(module, str):
+        module_name, module = module, import_module(module)
+    else:
+        raise TypeError(
+            "'module' must be either a module or str; "
+            f"got: {module.__class__.__name__}")
+
+    for attr_name in dir(module):
+        attr = getattr(module, attr_name)
+        check = (
+            # is it a module?
+            isinstance(attr, ModuleType)
+
+            # has it already been reloaded?
+            and attr.__name__ not in reloaded
+
+            # is it a proper submodule? (or just reload all)
+            and (reload_all or attr.__name__.startswith(module_name))
+        )
+        if check:
+            _reload(attr, reload_all, reloaded)
+    reload(module)
+    reloaded.add(module_name)
+
+
+def reload_recursive(module, reload_external_modules=False):
+    """
+    Recursively reload a module (in order of dependence).
+
+    Parameters
+    ----------
+    module : ModuleType or str
+        The module to reload.
+
+    reload_external_modules : bool, optional
+
+        Whether to reload all referenced modules, including external ones which
+        aren't submodules of ``module``.
+
+    """
+    _reload(module, reload_external_modules, set())
+
+
 def get_addon_modules_sorted() -> list[dict]:
     return sorted(
         [
@@ -54,11 +102,14 @@ def get_addon_modules_by_name(name: str) -> Iterator[str]:
 
 
 def reload_module(name) -> None:
+    reload_recursive(name)
     try:
         # FIXME: I have no idea why the first try fails
-        addon_utils.enable(name)
-    except (KeyError, ImportError):
-        addon_utils.enable(name)
+        bpy.ops.preferences.addon_disable(module=name)
+        bpy.ops.preferences.addon_enable(module=name)
+    except (KeyError, ImportError, RuntimeError):
+        bpy.ops.preferences.addon_disable(module=name)
+        bpy.ops.preferences.addon_enable(module=name)
 
 
 def observe(module_name: str, module_file: str) -> None:
