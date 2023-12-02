@@ -4,6 +4,7 @@ import subprocess
 import sys
 import bpy
 from importlib import reload, import_module
+from time import sleep
 from types import ModuleType
 from typing import Iterator
 from bpy.props import CollectionProperty, IntProperty, StringProperty
@@ -106,9 +107,11 @@ def reload_module(name) -> None:
     try:
         # FIXME: I have no idea why the first try fails
         bpy.ops.preferences.addon_disable(module=name)
+        sleep(0.1)
         bpy.ops.preferences.addon_enable(module=name)
     except (KeyError, ImportError, RuntimeError):
         bpy.ops.preferences.addon_disable(module=name)
+        sleep(0.1)
         bpy.ops.preferences.addon_enable(module=name)
 
 
