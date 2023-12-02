@@ -113,9 +113,6 @@ def reload_module(name) -> None:
 
 
 def observe(module_name: str, module_file: str) -> None:
-    if module_name != __name__:
-        reload_module(module_name)
-
     file = Path(module_file).resolve()
     is_single_file = file.name != "__init__.py"
     event_handler = PatternMatchingEventHandler(
