@@ -1,10 +1,10 @@
-# WARNING
+# INFO
 
-Tested with Blender 4.0.0 Beta, hash: `779239f5e180`.
+Tested with Blender 4.0.2.
 
 # Blender Addon Dev Watcher
 
-This addon auto-reloads the selected addons when file changes get detected for a fast development cycle.
+This addon auto-reloads the watched addons when file changes get detected for a fast development cycle.
 
 It uses the Python [watchdog](https://github.com/gorakhargosh/watchdog) module.
 
@@ -14,12 +14,12 @@ Blender addon development is greatly slowed down due to lack of hot-reloading on
 
 Some proposed workarounds include:
 
-1. refresh followed by disabling/enabling the addon from the `Preferences... > Add-ons` panel
-2. using the `Reload Scripts` button
+1. Refresh followed by disabling/enabling the addon from the `Preferences... > Add-ons` panel.
+2. Using the `Reload Scripts` button.
 
 ![](readme/reload-scripts.png)
 
-Both of these are horrible to work with.
+Both of these options are less than ideal.
 
 ## The Solution
 

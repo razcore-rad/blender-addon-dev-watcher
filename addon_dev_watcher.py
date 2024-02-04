@@ -4,7 +4,8 @@ import subprocess
 import sys
 import bpy
 from importlib import reload, import_module
-from time import sleep
+from functools import partial
+from queue import Queue
 from types import ModuleType
 from typing import Iterator
 from bpy.props import CollectionProperty, IntProperty, StringProperty
@@ -24,7 +25,7 @@ bl_info = {
     "name": "Addon Dev Watcher",
     "description": "Refreshes addons when detecting file changes",
     "author": "Răzvan C. Rădulescu (razcore-rad)",
-    "version": (0, 1),
+    "version": (0, 2),
     "blender": (3, 6, 0),
     "location": "View3D > Sidebar > Tool",
     "warning": "",  # used for warning icon and text in addons panel
@@ -39,6 +40,13 @@ BLACKLIST_DIR = system_resource("SCRIPTS")
 addon_modules = []
 watched_addon_modules = set([__name__])
 observers = {}
+queue = Queue()
+
+
+def execute_queue() -> None:
+    while not queue.empty():
+        function = queue.get()
+        function()
 
 
 def _reload(module, reload_all, reloaded):
@@ -103,16 +111,10 @@ def get_addon_modules_by_name(name: str) -> Iterator[str]:
 
 
 def reload_module(name) -> None:
-    reload_recursive(name)
-    try:
-        # FIXME: I have no idea why the first try fails
-        bpy.ops.preferences.addon_disable(module=name)
-        sleep(0.1)
-        bpy.ops.preferences.addon_enable(module=name)
-    except (KeyError, ImportError, RuntimeError):
-        bpy.ops.preferences.addon_disable(module=name)
-        sleep(0.1)
-        bpy.ops.preferences.addon_enable(module=name)
+    queue.put(partial(bpy.ops.preferences.addon_disable, module=name))
+    queue.put(partial(reload_recursive, name))
+    queue.put(partial(bpy.ops.preferences.addon_enable, module=name))
+    bpy.app.timers.register(execute_queue)
 
 
 def observe(module_name: str, module_file: str) -> None:
@@ -178,10 +180,13 @@ class WATCH_OT_RemoveWatch(Operator):
     bl_label = "Remove Watch"
 
     @classmethod
-    def poll(cls, context: Context) -> None:
+    def poll(cls, context: Context) -> bool:
+        result = True
         scene = context.scene
-        name = scene.watch_watched_addon_modules[scene.watch_watched_addon_module_index].name
-        return name != __name__
+        if scene.watch_watched_addon_modules:
+            name = scene.watch_watched_addon_modules[scene.watch_watched_addon_module_index].name
+            result = name != __name__
+        return result
 
     def execute(self, context: Context) -> None:
         scene = context.scene
