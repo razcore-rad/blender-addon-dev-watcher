@@ -40,3 +40,5 @@ For now, there are no preference and the addon resets every time Blender is rest
 The addon adds itself to the watch list and can't be unwatched. This is so we can hot-reload it during development at any time for whatever reason.
 
 Refreshing the addon is done with the help of the `bpy.ops.preferences.addon_disable()`, `bpy.ops.preferences.addon_enable()` Blender function, and a solution to recursively reload modules from [this gist](https://gist.github.com/KristianHolsheimer/f139646259056c1dffbf79169f84c5de).
+
+The watchdog dependency is installed in the `ADDON_PATH/dependnecies` local folder.

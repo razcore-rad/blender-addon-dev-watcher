@@ -1,46 +1,45 @@
 import addon_utils
 import logging
-import subprocess
-import sys
 import bpy
+
 from importlib import reload, import_module
 from functools import partial
 from queue import Queue
+from pathlib import Path
 from types import ModuleType
 from typing import Iterator
+
+from watchdog.observers import Observer
+from watchdog.events import PatternMatchingEventHandler
+
 from bpy.props import CollectionProperty, IntProperty, StringProperty
 from bpy.types import Context, Operator, Panel, PropertyGroup, UIList, UILayout, Scene
-from bpy.utils import register_class, unregister_class, system_resource
-from pathlib import Path
+from bpy.utils import register_class, unregister_class
 
-try:
-    from watchdog.observers import Observer
-    from watchdog.events import PatternMatchingEventHandler
-except ModuleNotFoundError:
-    subprocess.call([sys.executable, "-m", "pip", "install", "watchdog"])
-    from watchdog.observers import Observer
-    from watchdog.events import PatternMatchingEventHandler
+from .paths import ADDON_PATH, BLACKLIST_DIR
 
-bl_info = {
-    "name": "Addon Dev Watcher",
-    "description": "Refreshes addons when detecting file changes",
-    "author": "Răzvan C. Rădulescu (razcore-rad)",
-    "version": (0, 2),
-    "blender": (3, 6, 0),
-    "location": "View3D > Sidebar > Tool",
-    "warning": "",  # used for warning icon and text in addons panel
-    "doc_url": "",
-    "tracker_url": "",
-    "support": "COMMUNITY",
-    "category": "Development",
-}
 
-BLACKLIST_DIR = system_resource("SCRIPTS")
+MODULE_NAME = ADDON_PATH.name
 
 addon_modules = []
-watched_addon_modules = set([__name__])
+watched_addon_modules = set([MODULE_NAME])
 observers = {}
 queue = Queue()
+
+
+def get_addon_modules_sorted() -> list[dict]:
+    return sorted(
+        [
+            {"module": mod, "info": addon_utils.module_bl_info(mod)}
+            for mod in addon_utils.modules(refresh=False)
+            if not mod.__file__.startswith(BLACKLIST_DIR)
+        ],
+        key=lambda d: d["info"]["name"].upper(),
+    )
+
+
+def get_addon_modules_by_name(name: str) -> Iterator[str]:
+    return (d for d in addon_modules if d["module"].__name__ == name)
 
 
 def execute_queue() -> None:
@@ -55,25 +54,21 @@ def _reload(module, reload_all, reloaded):
     elif isinstance(module, str):
         module_name, module = module, import_module(module)
     else:
-        raise TypeError(
-            "'module' must be either a module or str; "
-            f"got: {module.__class__.__name__}")
+        raise TypeError("'module' must be either a module or str; " f"got: {module.__class__.__name__}")
 
     for attr_name in dir(module):
         attr = getattr(module, attr_name)
         check = (
             # is it a module?
             isinstance(attr, ModuleType)
-
             # has it already been reloaded?
             and attr.__name__ not in reloaded
-
             # is it a proper submodule? (or just reload all)
             and (reload_all or attr.__name__.startswith(module_name))
         )
         if check:
             _reload(attr, reload_all, reloaded)
-    reload(module)
+    reload(import_module(module_name))
     reloaded.add(module_name)
 
 
@@ -92,32 +87,18 @@ def reload_recursive(module, reload_external_modules=False):
         aren't submodules of ``module``.
 
     """
+    module_name = module.__name__ if isinstance(module, ModuleType) else module
+    bpy.ops.preferences.addon_disable(module=module_name)
     _reload(module, reload_external_modules, set())
-
-
-def get_addon_modules_sorted() -> list[dict]:
-    return sorted(
-        [
-            {"module": mod, "info": addon_utils.module_bl_info(mod)}
-            for mod in addon_utils.modules(refresh=False)
-            if not mod.__file__.startswith(BLACKLIST_DIR)
-        ],
-        key=lambda d: d["info"]["name"].upper(),
-    )
-
-
-def get_addon_modules_by_name(name: str) -> Iterator[str]:
-    return (d for d in addon_modules if d["module"].__name__ == name)
+    bpy.ops.preferences.addon_enable(module=module_name)
 
 
 def reload_module(name) -> None:
-    queue.put(partial(bpy.ops.preferences.addon_disable, module=name))
     queue.put(partial(reload_recursive, name))
-    queue.put(partial(bpy.ops.preferences.addon_enable, module=name))
     bpy.app.timers.register(execute_queue)
 
 
-def observe(module_name: str, module_file: str) -> None:
+def observe(module_name: str, module_file: str | Path) -> None:
     file = Path(module_file).resolve()
     is_single_file = file.name != "__init__.py"
     event_handler = PatternMatchingEventHandler(
@@ -181,11 +162,11 @@ class WATCH_OT_RemoveWatch(Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        result = True
         scene = context.scene
-        if scene.watch_watched_addon_modules:
+        result = scene.watch_watched_addon_module_index <= len(scene.watch_watched_addon_modules)
+        if result and scene.watch_watched_addon_modules:
             name = scene.watch_watched_addon_modules[scene.watch_watched_addon_module_index].name
-            result = name != __name__
+            result = name != MODULE_NAME
         return result
 
     def execute(self, context: Context) -> None:
@@ -206,7 +187,7 @@ class WATCH_PT_PanelBase(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Tool"
-    bl_label = bl_info["name"]
+    bl_label = "Addon Dev Watcher"
 
     def __init__(self):
         try:
@@ -273,7 +254,7 @@ def register():
     Scene.watch_addon_module_index = IntProperty()
     Scene.watch_watched_addon_modules = CollectionProperty(type=WatchAddonModuleItem)
     Scene.watch_watched_addon_module_index = IntProperty()
-    observe(__name__, __file__)
+    observe(ADDON_PATH.name, ADDON_PATH / "__init__.py")
 
 
 def unregister():
