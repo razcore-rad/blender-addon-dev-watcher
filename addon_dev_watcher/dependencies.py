@@ -7,7 +7,7 @@ from importlib import import_module, invalidate_caches
 from .paths import ADDON_PATH
 
 
-def ensure_dependencies(bl_info: dict) -> None:
+def ensure_dependencies() -> None:
     requirements_path = str(ADDON_PATH / "requirements.txt")
     dependencies_path = ADDON_PATH / "dependencies"
     site_path = (
@@ -25,7 +25,7 @@ def ensure_dependencies(bl_info: dict) -> None:
         exec += ["install", "--prefix", str(dependencies_path), "--upgrade", "--requirement", requirements_path]
         out = [
             "",
-            "{name}::ensure_modules()".format(**bl_info),
+            "{name}::ensure_dependencies()".format(name=ADDON_PATH.name),
             *subprocess.check_output(exec).decode("utf8").splitlines(),
             "",
         ]

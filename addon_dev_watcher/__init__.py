@@ -20,7 +20,7 @@ mods = []
 
 
 def register():
-    ensure_dependencies(bl_info)
+    ensure_dependencies()
     from . import core
 
     mods.extend([core])
