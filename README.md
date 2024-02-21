@@ -41,4 +41,4 @@ The addon adds itself to the watch list and can't be unwatched. This is so we ca
 
 Refreshing the addon is done with the help of the `bpy.ops.preferences.addon_disable()`, `bpy.ops.preferences.addon_enable()` Blender function, and a solution to recursively reload modules from [this gist](https://gist.github.com/KristianHolsheimer/f139646259056c1dffbf79169f84c5de).
 
-The watchdog dependency is installed in the `ADDON_PATH/dependnecies` local folder.
+The watchdog dependency is installed in the `ADDON_PATH/dependnecies` local folder by creating a virtual environment using the `venv` module.
