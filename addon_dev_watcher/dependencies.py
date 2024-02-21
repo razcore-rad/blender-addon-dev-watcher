@@ -3,7 +3,6 @@ import subprocess
 import sys
 import venv
 
-from pathlib import Path
 from importlib import invalidate_caches
 
 from .paths import ADDON_PATH
@@ -23,7 +22,7 @@ def ensure_dependencies() -> None:
 
 def ensure_dependencies_venv_check() -> None:
     message = ["", LABEL.format("venv-check")]
-    pyvenv_version = read_pyvenv_cfg_version(DEPENDENCIES_PATH)
+    pyvenv_version = read_pyvenv_cfg_version()
     if sys.version_info[:2] != pyvenv_version:
         shutil.rmtree(DEPENDENCIES_PATH)
         message = [*message, f"REMOVE::Incompattible virtual environment for {PYTHON_VERSION}."]
@@ -44,12 +43,12 @@ def ensure_dependencies_venv_create() -> None:
 
 def ensure_dependencies_pip_install() -> None:
     message = ["", LABEL.format("pip")]
+    exec = [
+        DEPENDENCIES_PATH / "bin" / "pip",
+        *["--no-input", "--disable-pip-version-check"],
+        *["install", "--requirement", REQUIREMENTS_PATH],
+    ]
     try:
-        exec = [
-            DEPENDENCIES_PATH / "bin" / "pip",
-            *["--no-input", "--disable-pip-version-check"],
-            *["install", "--requirement", REQUIREMENTS_PATH],
-        ]
         output = subprocess.check_output(exec).decode("utf8").splitlines()
         message = [*message, *output]
         invalidate_caches()
@@ -63,10 +62,13 @@ def ensure_dependencies_pip_install() -> None:
     print("\n".join(message))
 
 
-def read_pyvenv_cfg_version(env_dir: Path) -> tuple[int, int]:
-    result = ()
-    with open(env_dir / "pyvenv.cfg") as pyenv_cfg:
-        for line in (ln for ln in pyenv_cfg.readlines() if ln.startswith("version")):
-            for version in line.split("=")[1:]:
-                result = tuple(int(v.strip()) for v in version.split(".")[:2])
+def read_pyvenv_cfg_version() -> tuple[int, int]:
+    result = (0, 0)
+    try:
+        with open(DEPENDENCIES_PATH / "pyvenv.cfg") as pyenv_cfg:
+            for line in (ln for ln in pyenv_cfg.readlines() if ln.startswith("version")):
+                for version in line.split("=")[1:]:
+                    result = tuple(int(v.strip()) for v in version.split(".")[:2])
+    except FileNotFoundError:
+        pass
     return result
